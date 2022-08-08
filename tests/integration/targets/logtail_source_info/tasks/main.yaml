@@ -1,0 +1,56 @@
+  - name: Verify token present
+    logtail_source_info:
+    check_mode: true
+    register: invalid_token
+    ignore_errors: true
+
+  - assert:
+      that:
+        - invalid_token is failure
+        - invalid_token.msg = "missing required arguments: token"
+
+  - name: Get Source by ID
+    logtail_source_info:
+      token: "{{ logtail_token }}"
+      id: "{{ logtail_source_id }}"
+    register: source_by_id
+
+  - assert:
+      that:
+        - source_by_id is success
+        - source_by_id.sources is defined
+        - source_by_id.sources[0].id == "{{ logtail_source_id }}"
+
+  - name: Get Source by name
+    logtail_source_info:
+      token: "{{ logtail_token }}"
+      name: "{{ logtail_source_name }}"
+    register: source_by_name
+
+  - assert:
+      that:
+        - source_by_name is success
+        - source_by_id.sources is defined
+        - source_by_id.sources[0].name == "{{ logtail_source_name }}"
+
+  - name: Get Source by filter
+    logtail_source_info:
+      token: "{{ logtail_token }}"
+      filter: "{{ logtail_source_filter }}"
+    register: source_by_filter
+
+  - assert:
+      that:
+        - source_by_filter is success
+        - source_by_id.sources is defined
+        - '"{{ logtail_source_filter.name }}" in source_by_id.sources[0].name'
+
+  - name: Get all sources
+    logtail_source_info:
+      token: "{{ logtail_token }}"
+    register: all_sources
+
+  - assert:
+      that:
+        - all_sources is success
+        - all_sources.sources is defined

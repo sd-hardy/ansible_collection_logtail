@@ -1,3 +1,9 @@
-# CHANGE THIS
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+ignore:
+    - tests
 fixes:
-   - "/ansible_collections/NAMESPACE/COLLECTION/::"
+   - "/ansible_collections/sd_hardy/logtail/::"

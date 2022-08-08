@@ -1,0 +1,8 @@
+---
+- hosts: all
+  collections:
+    - sd_hardy.logtail
+
+  tasks:
+    - import_role:
+        name: logtail_source

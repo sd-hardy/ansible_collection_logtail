@@ -1,0 +1,162 @@
+  - name: Verify token present
+    logtail_source:
+      name: "{{ logtail_source_name }}"
+      platform: "{{ logtail_source_platform }}"
+    check_mode: true
+    register: invalid_token
+    ignore_errors: true
+
+  - assert:
+      that:
+        - invalid_token is failure
+        - invalid_token.msg = "missing required arguments: token"
+
+  - name: Create Source (check mode)
+    logtail_source:
+      token: "{{ logtail_token }}"
+      state: present
+      name: "{{ logtail_source_name }}"
+      platform: "{{ logtail_source_platform }}"
+    check_mode: true
+    register: create_checkmode
+
+  - assert:
+      that:
+        - create_checkmode is success
+        - create_checkmode is changed
+
+  - name: Create Source (missing params)
+    logtail_source:
+      token: "{{ logtail_token }}"
+    register: create_missing_params
+    ignore_errors: true
+
+  - assert:
+      that:
+        - create_missing_params is failed
+        - create_missing_params is not changed
+        - create_missing_params.msg == "missing required arguments: name, platform"
+
+  - name: Create Source
+    logtail_source:
+      token: "{{ logtail_token }}"
+      state: present
+      name: "{{ logtail_source_name }}"
+      platform: "{{ logtail_source_platform }}"
+      ingest_paused: true
+    register: logtail_create
+
+  - assert:
+      that:
+        - logtail_create is success
+        - logtail_create is changed
+        - logtail_create.source.name == "{{ logtail_source_name }}"
+        - logtail_create.source.platform == "{{ logtail_source_platform }}"
+        - logtail_create.source.ingest_paused == True
+        - logtail_create.source.id is defined
+
+  - name: Set source id fact
+    set_fact:
+      logtail_source_id: "{{ logtail_create.source.id }}"
+
+  - name: Update Source (check mode)
+    logtail_source:
+      token: "{{ logtail_token }}"
+      id: "{{ logtail_source_id }}"
+      autogen_views: false
+      ingest_paused: true
+    check_mode: true
+    register: update_checkmode
+
+  - assert:
+      that:
+        - update_checkmode is success
+        - update_checkmode is changed
+
+  - name: Update Source
+    logtail_source:
+      token: "{{ logtail_token }}"
+      state: present
+      id: "{{ logtail_source_id }}"
+      name: 'updated'
+      autogen_views: false
+      ingest_paused: true
+    register: logtail_update
+
+  - assert:
+      that:
+        - logtail_update is success
+        - logtail_update is changed
+        - logtail_update.source.name == 'updated'
+        - logtail_update.source.autogen_views == False
+        - logtail_update.source.ingest_paused == True
+
+  - name: Update Source idempotency
+    logtail_source:
+      token: "{{ logtail_token }}"
+      state: present
+      id: "{{ logtail_source_id }}"
+      name: 'updated'
+      autogen_views: false
+      ingest_paused: true
+    register: update_idempotency
+
+  - assert:
+      that:
+        - update_idempotency is success
+        - update_idempotency is not changed
+        - update_idempotency.message == 'Source present'
+
+  - name: Delete Source (check mode)
+    logtail_source:
+      token: "{{ logtail_token }}"
+      id: "{{ logtail_source_id }}"
+      state: absent
+    check_mode: true
+    register: delete_checkmode
+
+  - assert:
+      that:
+        - delete_checkmode is success
+        - delete_checkmode is changed
+
+  - name: Delete Source
+    logtail_source:
+      token: "{{ logtail_token }}"
+      id: "{{ logtail_source_id }}"
+      state: absent
+    register: logtail_delete
+
+  - assert:
+      that:
+        - logtail_delete is success
+        - logtail_delete is changed
+        - logtail_delete.state == 'absent'
+        - logtail_delete.message == 'Removed source'
+
+  - name: Delete Nonexistant Source
+    logtail_source:
+      token: "{{ logtail_token }}"
+      id: "{{ logtail_source_id }}"
+      state: absent
+    register: delete_idempotency
+    ignore_errors: true
+
+  - assert:
+      that:
+        - delete_idempotency is success
+        - delete_idempotency is not changed
+        - delete_idempotency.message == 'Source not found'
+
+  - name: Delete Source (missing id)
+    logtail_source:
+      token: "{{ logtail_token }}"
+      state: absent
+    register: delete_missing_id
+    ignore_errors: true
+
+  - assert:
+      that:
+        - delete_missing_id is failed
+        - delete_missing_id is not changed
+        - delete_missing_id.msg == 'missing required arguments: id'

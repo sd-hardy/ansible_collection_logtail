@@ -1,0 +1,106 @@
+---
+- name: Set Logtail Source facts from environment variables
+  tags: update_source
+  ansible.builtin.set_fact:
+    logtail_source_id: "{{ ansible_env[logtail_env_var_id] }}"
+    logtail_source_token: "{{ ansible_env[logtail_env_var_token] }}"
+  when: 
+    - "logtail_env_var_enabled is true"
+    - "logtail_source_id is not defined or logtail_source_token is not defined"
+    - "ansible_env[logtail_env_var_id] is defined or ansible_env[logtail_env_var_token] is defined"
+
+# Try to find the source id via fqdn
+- name: Find source
+  block:
+  - name: Find source by name
+    logtail_source_info:
+      token: "{{ logtail_api_token }}"
+      name: "{{ logtail_source_name }}"
+    register: source_by_name
+
+  - name: Set source ID 
+    ansible.builtin.set_fact:
+      logtail_source_id: "{{ source_by_name.sources[0].id }}"
+    when: "(source_by_name.sources | length) == 1"
+  
+  # Output potential sources and fail
+  - block:
+    - ansible.builtin.debug:
+        var: source_by_name.sources
+    - ansible.builtin.fail:
+        msg: "logtail_source_id is not defined, but possible sources were
+          found. Please set the logtail_source_id (or {{ logtail_env_var_id }}
+          environemnt) variable manually. Example:
+           ansible-playbook -b sd_hardy.logtail.source -t env_vars -l <host>
+          -e logtail_source_id=<id>
+          You can also run the create_source playbook for this host. Example: 
+          ansible-playbook -b sd_hardy.logtail.source -l <host> 
+          -t create_source -e @<path_to_vars>"
+    when: "(source_by_name.sources | length) > 1"
+  when:
+    - "logtail_source_state != 'absent'" 
+    - "logtail_source_id is not defined"
+
+# Create a source
+- name: Create source 
+  tags: create_source
+  block:
+  - name: Creating logtail source
+    logtail_source:
+      token: "{{ logtail_api_token }}"
+      name: "{{ logtail_source_name }}"
+      platform: "{{ logtail_source_platform | default(ubuntu) }}"
+      ingest_paused: "{{ logtail_source_ingest_paused | default(false) }}"
+      autogen_views: "{{ logtail_source_autogen_views | default(true) }}"
+    register: created
+  - name: Set the source facts
+    ansible.builtin.set_fact:
+      logtail_source_id: "{{ created.source.id }}"
+      logtail_source_token: "{{ created.source.token }}"
+    when: "created is success"
+  when: 
+    - "logtail_source_state != 'absent'"
+    - "logtail_source_id is not defined"
+
+# Source Id Found
+- name: Update source
+  block:
+  - name: Update source details
+    tags: update_source
+    logtail_source:
+      token: "{{ logtail_api_token }}"
+      id: "{{ logtail_source_id }}"
+      name: "{{ logtail_source_name }}"
+      ingest_paused: "{{ logtail_source_ingest_paused | default(false) }}"
+      autogen_views: "{{ logtail_source_autogen_views | default(true) }}"
+      state: "{{ logtail_source_state | default(present) }}"
+    register: updated
+  - name: Set source token fact
+    ansible.builtin.set_fact:
+      logtail_source_token: "{{ updated.source.token }}"
+    when: 
+      - "updated is success"
+      - "logtail_source_state == 'present'"
+  when: 
+    - "created.skipped is true or created is undefined"
+    - "logtail_source_id is defined"
+
+# Write source details to environment variables
+- name: Write env vars
+  tags: create_source, update_source, env_vars
+  block:
+  - name: Write Source ID environment variable
+    ansible.builtin.lineinfile:
+      path: "{{ logtail_env_var_path }}"
+      regex: "^{{ logtail_env_var_id }}=[0-9]+$"
+      line: "{{ logtail_env_var_id }}={{ logtail_source_id }}"
+      state: "{{ logtail_source_state | default(present) }}"
+    when: "logtail_source_id is defined"
+  - name: Write Source token environment variable
+    ansible.builtin.lineinfile:
+      path: "{{ logtail_env_var_path }}"
+      regex: "^{{ logtail_env_var_token }}='[0-9a-zA-Z]+'$"
+      line: "{{ logtail_env_var_token }}='{{ logtail_source_token }}'"
+      state: "{{ logtail_source_state | default(present) }}"
+    when: "logtail_source_token is defined"
+  when: "logtail_env_var_enabled is true"

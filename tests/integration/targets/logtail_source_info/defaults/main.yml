@@ -1,0 +1,4 @@
+logtail_token: 'logtail_api_token'
+logtail_source_id: 123456
+logtail_source_name: testSource
+logtail_source_filter: { 'name': 'test' }

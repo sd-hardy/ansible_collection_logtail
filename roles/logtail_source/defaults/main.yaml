@@ -1,0 +1,12 @@
+# Source create/update defaults
+logtail_source_name: "{{ ansible_fqdn }}"
+logtail_source_state: present
+logtail_source_platform: ubuntu
+logtail_source_ingest_paused: false
+logtail_source_autogen_views: true
+
+# Environment variable names
+logtail_env_var_enabled: true
+logtail_env_var_path: /etc/environment
+logtail_env_var_id: LOGTAIL_SOURCE_ID
+logtail_env_var_token: LOGTAIL_SOURCE_TOKEN
